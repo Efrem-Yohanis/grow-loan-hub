@@ -12,6 +12,7 @@ const metrics = [
   { title: "Daily App Downloads", slug: "daily-app-downloads", type: "daily" as const },
   { title: "Daily Active Micro Merchants", slug: "daily-active-micro-merchants", type: "daily" as const },
   { title: "Daily Active Unified Merchants", slug: "daily-active-unified-merchants", type: "daily" as const },
+  { title: "Daily Top Up", slug: "daily-top-up", type: "daily" as const },
   
   // 30D Metrics
   { title: "30D Active Total", slug: "30d-active-total", type: "30d" as const },
@@ -24,6 +25,7 @@ const metrics = [
   { title: "30D App Transacting", slug: "30d-app-transacting", type: "30d" as const },
   { title: "30D Active Micro Merchants", slug: "30d-active-micro-merchants", type: "30d" as const },
   { title: "30D Active Unified Merchants", slug: "30d-active-unified-merchants", type: "30d" as const },
+  { title: "30D Top Up", slug: "30d-top-up", type: "30d" as const },
   
   // 90D Metrics
   { title: "90D Active Total", slug: "90d-active-total", type: "90d" as const },
@@ -41,13 +43,14 @@ const generateMockValue = (type: "daily" | "30d" | "90d") => {
   return Math.floor(Math.random() * 1500000) + 3000000;
 };
 
-const generateSparklineData = () => {
-  return Array.from({ length: 9 }, () => Math.floor(Math.random() * 50000) + 200000);
+const generatePreviousValue = (currentValue: number) => {
+  const changePercent = (Math.random() - 0.5) * 0.4; // -20% to +20%
+  return Math.floor(currentValue / (1 + changePercent));
 };
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [metricsData, setMetricsData] = useState<Record<string, { value: number; sparkline: number[] }>>({});
+  const [metricsData, setMetricsData] = useState<Record<string, { value: number; previousValue: number }>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,11 +60,12 @@ export default function Dashboard() {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const data: Record<string, { value: number; sparkline: number[] }> = {};
+      const data: Record<string, { value: number; previousValue: number }> = {};
       metrics.forEach(metric => {
+        const currentValue = generateMockValue(metric.type);
         data[metric.slug] = {
-          value: generateMockValue(metric.type),
-          sparkline: generateSparklineData(),
+          value: currentValue,
+          previousValue: generatePreviousValue(currentValue),
         };
       });
       setMetricsData(data);
@@ -100,8 +104,8 @@ export default function Dashboard() {
               <MetricCard
                 title={metric.title}
                 value={data?.value || 0}
+                previousValue={data?.previousValue || 0}
                 type={metric.type}
-                sparklineData={data?.sparkline}
                 onNavigate={() => navigate(`/metric/${metric.slug}`)}
               />
             </div>
