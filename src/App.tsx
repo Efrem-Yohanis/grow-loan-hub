@@ -10,6 +10,8 @@ import BasePreparation from "./pages/BasePreparation";
 import CourtIssue from "./pages/ops-support/CourtIssue";
 import DormantList from "./pages/ops-support/DormantList";
 import Pinlock from "./pages/ops-support/Pinlock";
+import SQLQueryLibrary from "./pages/SQLQueryLibrary";
+import SQLQueryDetail from "./pages/SQLQueryDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +31,8 @@ const App = () => (
             <Route path="ops-support/court-issue" element={<CourtIssue />} />
             <Route path="ops-support/dormant-list" element={<DormantList />} />
             <Route path="ops-support/pinlock" element={<Pinlock />} />
+            <Route path="sql-query-library" element={<SQLQueryLibrary />} />
+            <Route path="sql-query/:queryId" element={<SQLQueryDetail />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
