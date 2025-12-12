@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 interface MetricCardProps {
   title: string;
   value: number;
+  previousValue: number;
   type: "daily" | "30d" | "90d";
-  sparklineData?: number[];
   onNavigate?: () => void;
 }
 
@@ -28,48 +28,30 @@ const typeBadgeColors = {
   "90d": "bg-violet-500/10 text-violet-600 dark:text-violet-400",
 };
 
-// Simple sparkline component
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  if (!data || data.length < 2) return null;
+function getChangeInfo(value: number, previousValue: number) {
+  const difference = value - previousValue;
+  const percentChange = previousValue !== 0 ? (difference / previousValue) * 100 : 0;
   
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const width = 80;
-  const height = 24;
-  
-  const points = data.map((value, index) => {
-    const x = (index / (data.length - 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;
-  }).join(" ");
-  
-  return (
-    <svg width={width} height={height} className="overflow-visible">
-      <polyline
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        points={points}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  if (difference > 0) {
+    return { icon: TrendingUp, trend: "up" as const, difference, percentChange };
+  } else if (difference < 0) {
+    return { icon: TrendingDown, trend: "down" as const, difference, percentChange };
+  }
+  return { icon: Minus, trend: "neutral" as const, difference, percentChange };
 }
 
-function getTrendIndicator(data?: number[]) {
-  if (!data || data.length < 2) return { icon: Minus, trend: "neutral" };
-  const lastValue = data[data.length - 1];
-  const prevValue = data[data.length - 2];
-  if (lastValue > prevValue) return { icon: TrendingUp, trend: "up" };
-  if (lastValue < prevValue) return { icon: TrendingDown, trend: "down" };
-  return { icon: Minus, trend: "neutral" };
-}
-
-export function MetricCard({ title, value, type, sparklineData, onNavigate }: MetricCardProps) {
-  const { icon: TrendIcon, trend } = getTrendIndicator(sparklineData);
-  const sparklineColor = type === "daily" ? "hsl(210, 100%, 50%)" : type === "30d" ? "hsl(160, 84%, 39%)" : "hsl(262, 83%, 58%)";
+export function MetricCard({ title, value, previousValue, type, onNavigate }: MetricCardProps) {
+  const { icon: TrendIcon, trend, difference, percentChange } = getChangeInfo(value, previousValue);
+  
+  const formatDifference = (diff: number) => {
+    const sign = diff > 0 ? "+" : "";
+    return `${sign}${diff.toLocaleString()}`;
+  };
+  
+  const formatPercent = (percent: number) => {
+    const sign = percent > 0 ? "+" : "";
+    return `${sign}${percent.toFixed(2)}%`;
+  };
   
   return (
     <Card 
@@ -86,29 +68,36 @@ export function MetricCard({ title, value, type, sparklineData, onNavigate }: Me
           <CardTitle className="text-xs font-medium text-muted-foreground leading-tight line-clamp-2 min-h-[2rem]">
             {title}
           </CardTitle>
-          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase", typeBadgeColors[type])}>
+          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase shrink-0", typeBadgeColors[type])}>
             {type === "daily" ? "D" : type === "30d" ? "30D" : "90D"}
           </span>
         </div>
       </CardHeader>
       <CardContent className="pb-3 px-4">
-        <div className="flex items-end justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <p className={cn("text-xl font-bold", typeAccents[type])}>
-              {value.toLocaleString()}
-            </p>
+        <div className="space-y-1">
+          <p className={cn("text-xl font-bold", typeAccents[type])}>
+            {value.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-1.5">
             <TrendIcon 
               className={cn(
-                "h-4 w-4",
+                "h-3.5 w-3.5",
                 trend === "up" && "text-emerald-500",
                 trend === "down" && "text-red-500",
                 trend === "neutral" && "text-muted-foreground"
               )}
             />
+            <span 
+              className={cn(
+                "text-xs font-medium",
+                trend === "up" && "text-emerald-500",
+                trend === "down" && "text-red-500",
+                trend === "neutral" && "text-muted-foreground"
+              )}
+            >
+              {formatDifference(difference)} ({formatPercent(percentChange)})
+            </span>
           </div>
-          {sparklineData && sparklineData.length > 1 && (
-            <Sparkline data={sparklineData} color={sparklineColor} />
-          )}
         </div>
       </CardContent>
     </Card>
