@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Users, Smartphone, Download, UserPlus, UserMinus, ArrowUpCircle, ChevronRight, Database, Megaphone, Headphones, Gavel, Moon, Lock, Activity, BarChart3, Store } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Users, Smartphone, Download, UserPlus, UserMinus, ArrowUpCircle, ChevronRight, Database, Megaphone, Headphones, Gavel, Moon, Lock, Activity, BarChart3, Store, FileCode2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -175,6 +175,22 @@ export function AppSidebar() {
                     <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity" />
                     <Megaphone className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-sidebar-primary" />
                     {open && <span className="text-sm transition-colors">Campaign Management</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* SQL Query Library */}
+              <SidebarMenuItem className="animate-fade-in">
+                <SidebarMenuButton asChild className={`group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300 ${!open ? "justify-center" : ""}`}>
+                  <NavLink 
+                    to="/sql-query-library" 
+                    end
+                    className="relative z-10"
+                    activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+                  >
+                    <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity" />
+                    <FileCode2 className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-sidebar-primary" />
+                    {open && <span className="text-sm transition-colors">SQL Query Library</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
