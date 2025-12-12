@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +7,7 @@ import { Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, subDays } from "date-fns";
+import { RefreshControl } from "@/components/RefreshControl";
 
 const metricTitles: Record<string, string> = {
   // Daily metrics
@@ -43,29 +44,46 @@ interface ChartDataItem {
   value: number;
 }
 
+const generateChartData = (): ChartDataItem[] => {
+  const today = new Date();
+  return Array.from({ length: 9 }, (_, i) => {
+    const date = subDays(today, i + 1);
+    return {
+      date: format(date, "MMM dd"),
+      value: Math.floor(Math.random() * 50000) + 200000,
+    };
+  }).reverse();
+};
+
 export default function MetricDetail() {
   const { metricId } = useParams();
   const [chartType, setChartType] = useState<"bar" | "line">("bar");
+  const [chartData, setChartData] = useState<ChartDataItem[]>(generateChartData);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const metricTitle = metricTitles[metricId || ""] || "Metric";
 
-  // Generate mock data for last 9 days (D-1 to D-9)
-  const chartData: ChartDataItem[] = useMemo(() => {
-    const today = new Date();
-    return Array.from({ length: 9 }, (_, i) => {
-      const date = subDays(today, i + 1); // D-1 to D-9
-      return {
-        date: format(date, "MMM dd"),
-        value: Math.floor(Math.random() * 50000) + 200000,
-      };
-    }).reverse(); // Oldest first
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setChartData(generateChartData());
+    setLastRefreshed(new Date());
+    setIsRefreshing(false);
   }, []);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">{metricTitle}</h1>
-        <p className="text-muted-foreground mt-1">Last 9 days data</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">{metricTitle}</h1>
+          <p className="text-muted-foreground mt-1">Last 9 days data</p>
+        </div>
+        <RefreshControl 
+          lastRefreshed={lastRefreshed} 
+          onRefresh={handleRefresh} 
+          isRefreshing={isRefreshing} 
+        />
       </div>
 
       <Card>

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { RefreshControl } from "@/components/RefreshControl";
 
 // Full metrics list with types and slugs
 const metrics = [
@@ -48,47 +49,47 @@ const generatePreviousValue = (currentValue: number) => {
   return Math.floor(currentValue / (1 + changePercent));
 };
 
+const generateMetricsData = () => {
+  const data: Record<string, { value: number; previousValue: number }> = {};
+  metrics.forEach(metric => {
+    const currentValue = generateMockValue(metric.type);
+    data[metric.slug] = {
+      value: currentValue,
+      previousValue: generatePreviousValue(currentValue),
+    };
+  });
+  return data;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [metricsData, setMetricsData] = useState<Record<string, { value: number; previousValue: number }>>({});
-  const [loading, setLoading] = useState(true);
+  const [metricsData, setMetricsData] = useState<Record<string, { value: number; previousValue: number }>>(generateMetricsData);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    // Simulate fetching data - in production, this would call the API
-    const fetchData = async () => {
-      setLoading(true);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const data: Record<string, { value: number; previousValue: number }> = {};
-      metrics.forEach(metric => {
-        const currentValue = generateMockValue(metric.type);
-        data[metric.slug] = {
-          value: currentValue,
-          previousValue: generatePreviousValue(currentValue),
-        };
-      });
-      setMetricsData(data);
-      setLoading(false);
-    };
-    
-    fetchData();
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setMetricsData(generateMetricsData());
+    setLastRefreshed(new Date());
+    setIsRefreshing(false);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-primary opacity-5 blur-3xl -z-10" />
-        <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">MPESA CVM Dashboard</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Real-time overview of all key metrics</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-primary opacity-5 blur-3xl -z-10" />
+          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">MPESA CVM Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Real-time overview of all key metrics</p>
+        </div>
+        <RefreshControl 
+          lastRefreshed={lastRefreshed} 
+          onRefresh={handleRefresh} 
+          isRefreshing={isRefreshing} 
+        />
       </div>
 
       {/* 4-column responsive grid */}
