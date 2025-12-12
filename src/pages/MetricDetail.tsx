@@ -8,7 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, subDays } from "date-fns";
 import { RefreshControl } from "@/components/RefreshControl";
-
+import { toast } from "sonner";
 const metricTitles: Record<string, string> = {
   // Daily metrics
   "daily-active-customers": "Daily Active Customers",
@@ -72,6 +72,25 @@ export default function MetricDetail() {
     setIsRefreshing(false);
   }, []);
 
+  const exportToCSV = useCallback(() => {
+    const headers = ["Date", "Value"];
+    const csvContent = [
+      headers.join(","),
+      ...chartData.map(row => `${row.date},${row.value}`)
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${metricId || "metric"}_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("CSV exported successfully");
+  }, [chartData, metricId]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -115,7 +134,7 @@ export default function MetricDetail() {
                     Line
                   </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={exportToCSV}>
                   <Download className="h-4 w-4" />
                 </Button>
               </div>
@@ -148,7 +167,7 @@ export default function MetricDetail() {
 
             <TabsContent value="table" className="space-y-4">
               <div className="flex justify-end">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={exportToCSV}>
                   <Download className="h-4 w-4" />
                 </Button>
               </div>
