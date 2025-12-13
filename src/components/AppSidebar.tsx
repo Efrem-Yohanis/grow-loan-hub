@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Users, Smartphone, Download, UserPlus, UserMinus, ArrowUpCircle, ChevronRight, Database, Megaphone, Headphones, Gavel, Moon, Lock, Activity, BarChart3, Store, FileCode2 } from "lucide-react";
+import { LayoutDashboard, ChevronRight, Database, Megaphone, Headphones, Gavel, Moon, Lock, FileCode2, Zap, KeyRound, UserCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -15,89 +15,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const dailyMetrics = [
-  { title: "Daily Active Customers", url: "/metric/daily-active-customers", icon: Users },
-  { title: "Daily Gross Adds", url: "/metric/daily-gross-adds", icon: UserPlus },
-  { title: "Daily Non-Gross Adds", url: "/metric/daily-non-gross-adds", icon: UserMinus },
-  { title: "Daily App Downloads", url: "/metric/daily-app-downloads", icon: Download },
-  { title: "Daily Active Micro Merchants", url: "/metric/daily-active-micro-merchants", icon: Store },
-  { title: "Daily Active Unified Merchants", url: "/metric/daily-active-unified-merchants", icon: Store },
+const campaignItems = [
+  { title: "CCBE Campaign", url: "/campaign/ccbe", icon: Zap },
+  { title: "GA PIN Reset Campaign", url: "/campaign/ga-pin-reset", icon: KeyRound },
+  { title: "Won Back Churner", url: "/campaign/won-back-churner", icon: UserCheck },
 ];
 
-const thirtyDayMetrics = [
-  { title: "30D Active Total", url: "/metric/30d-active-total", icon: TrendingUp },
-  { title: "30D Active New", url: "/metric/30d-active-new", icon: UserPlus },
-  { title: "30D Active Existing", url: "/metric/30d-active-existing", icon: Users },
-  { title: "30D Active Transacting Total", url: "/metric/30d-active-transacting-total", icon: Activity },
-  { title: "30D Active New (txn)", url: "/metric/30d-active-new-txn", icon: ArrowUpCircle },
-  { title: "30D Active Existing (txn)", url: "/metric/30d-active-existing-txn", icon: ArrowUpCircle },
-  { title: "30D Active App Users", url: "/metric/30d-active-app-users", icon: Smartphone },
-  { title: "30D App Transacting", url: "/metric/30d-app-transacting", icon: BarChart3 },
-  { title: "30D Active Micro Merchants", url: "/metric/30d-active-micro-merchants", icon: Store },
-  { title: "30D Active Unified Merchants", url: "/metric/30d-active-unified-merchants", icon: Store },
+const opsSupportItems = [
+  { title: "Court Issue", url: "/ops-support/court-issue", icon: Gavel },
+  { title: "Dormant List", url: "/ops-support/dormant-list", icon: Moon },
+  { title: "Pinlock", url: "/ops-support/pinlock", icon: Lock },
 ];
-
-const ninetyDayMetrics = [
-  { title: "90D Active Total", url: "/metric/90d-active-total", icon: TrendingUp },
-  { title: "90D Active New", url: "/metric/90d-active-new", icon: UserPlus },
-  { title: "90D Active Existing", url: "/metric/90d-active-existing", icon: Users },
-  { title: "90D Active Transacting Total", url: "/metric/90d-active-transacting-total", icon: Activity },
-  { title: "90D Active New (txn)", url: "/metric/90d-active-new-txn", icon: ArrowUpCircle },
-  { title: "90D Active Existing (txn)", url: "/metric/90d-active-existing-txn", icon: ArrowUpCircle },
-];
-
-function MetricsSubMenu({ metrics, label, icon: Icon, defaultOpen = false }: { 
-  metrics: typeof dailyMetrics; 
-  label: string; 
-  icon: React.ComponentType<{ className?: string }>;
-  defaultOpen?: boolean;
-}) {
-  const { open } = useSidebar();
-  
-  if (!open) {
-    return (
-      <SidebarMenuItem className="animate-fade-in">
-        <SidebarMenuButton className="group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300 justify-center">
-          <Icon className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-sidebar-primary" />
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    );
-  }
-
-  return (
-    <Collapsible defaultOpen={defaultOpen} className="group/collapsible">
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton className="group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity" />
-            <Icon className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-sidebar-primary" />
-            <span className="text-sm transition-colors">{label}</span>
-            <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {metrics.map((metric, idx) => (
-              <SidebarMenuSubItem key={metric.title} className="animate-fade-in" style={{ animationDelay: `${idx * 15}ms` }}>
-                <SidebarMenuSubButton asChild className="group relative overflow-hidden hover:bg-sidebar-accent/80 transition-all duration-300">
-                  <NavLink
-                    to={metric.url}
-                    end
-                    className="relative z-10"
-                    activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  >
-                    <metric.icon className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
-                    <span className="text-xs">{metric.title}</span>
-                  </NavLink>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
-  );
-}
 
 export function AppSidebar() {
   const { open } = useSidebar();
@@ -138,15 +66,6 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Daily Metrics */}
-              <MetricsSubMenu metrics={dailyMetrics} label="Daily Metrics" icon={Activity} defaultOpen />
-              
-              {/* 30D Metrics */}
-              <MetricsSubMenu metrics={thirtyDayMetrics} label="30D Metrics" icon={TrendingUp} />
-              
-              {/* 90D Metrics */}
-              <MetricsSubMenu metrics={ninetyDayMetrics} label="90D Metrics" icon={BarChart3} />
-
               {/* Base Preparation */}
               <SidebarMenuItem className="animate-fade-in">
                 <SidebarMenuButton asChild className={`group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300 ${!open ? "justify-center" : ""}`}>
@@ -163,21 +82,41 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Campaign Management */}
-              <SidebarMenuItem className="animate-fade-in">
-                <SidebarMenuButton asChild className={`group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300 ${!open ? "justify-center" : ""}`}>
-                  <NavLink 
-                    to="/campaign-management" 
-                    end
-                    className="relative z-10"
-                    activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
-                  >
-                    <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity" />
+              {/* Campaign Management - Collapsible */}
+              {open ? (
+                <Collapsible className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300">
+                        <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity" />
+                        <Megaphone className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-sidebar-primary" />
+                        <span className="text-sm transition-colors">Campaign Management</span>
+                        <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {campaignItems.map((item, idx) => (
+                          <SidebarMenuSubItem key={item.title} className="animate-fade-in" style={{ animationDelay: `${idx * 15}ms` }}>
+                            <SidebarMenuSubButton asChild className="group relative overflow-hidden hover:bg-sidebar-accent/80 transition-all duration-300">
+                              <NavLink to={item.url} className="relative z-10" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
+                                <item.icon className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+                                <span className="text-xs">{item.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              ) : (
+                <SidebarMenuItem className="animate-fade-in">
+                  <SidebarMenuButton className="group relative overflow-hidden rounded-lg hover:bg-sidebar-accent/80 transition-all duration-300 justify-center">
                     <Megaphone className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-sidebar-primary" />
-                    {open && <span className="text-sm transition-colors">Campaign Management</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* SQL Query Library */}
               <SidebarMenuItem className="animate-fade-in">
@@ -209,30 +148,16 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        <SidebarMenuSubItem className="animate-fade-in">
-                          <SidebarMenuSubButton asChild className="group relative overflow-hidden hover:bg-sidebar-accent/80 transition-all duration-300">
-                            <NavLink to="/ops-support/court-issue" className="relative z-10" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
-                              <Gavel className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
-                              <span className="text-xs">Court Issue</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem className="animate-fade-in">
-                          <SidebarMenuSubButton asChild className="group relative overflow-hidden hover:bg-sidebar-accent/80 transition-all duration-300">
-                            <NavLink to="/ops-support/dormant-list" className="relative z-10" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
-                              <Moon className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
-                              <span className="text-xs">Dormant List</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem className="animate-fade-in">
-                          <SidebarMenuSubButton asChild className="group relative overflow-hidden hover:bg-sidebar-accent/80 transition-all duration-300">
-                            <NavLink to="/ops-support/pinlock" className="relative z-10" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
-                              <Lock className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
-                              <span className="text-xs">Pinlock</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
+                        {opsSupportItems.map((item, idx) => (
+                          <SidebarMenuSubItem key={item.title} className="animate-fade-in" style={{ animationDelay: `${idx * 15}ms` }}>
+                            <SidebarMenuSubButton asChild className="group relative overflow-hidden hover:bg-sidebar-accent/80 transition-all duration-300">
+                              <NavLink to={item.url} className="relative z-10" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
+                                <item.icon className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+                                <span className="text-xs">{item.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>

@@ -1,9 +1,10 @@
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Copy, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { RefreshControl } from "@/components/RefreshControl";
 import type { SQLQuery } from "./SQLQueryLibrary";
 
 // Mock data (same as in SQLQueryLibrary)
@@ -32,16 +33,6 @@ FROM first_txn f
 WHERE f.first_txn_date >= TRUNC(SYSDATE - 30);`,
     type: "Customer Analytics",
     createdAt: new Date("2024-12-01"),
-    sampleOutput: {
-      columns: ["customer_id", "first_txn_date"],
-      rows: [
-        ["712345678", "2024-12-10"],
-        ["723456789", "2024-12-09"],
-        ["734567890", "2024-12-08"],
-        ["745678901", "2024-12-07"],
-        ["756789012", "2024-12-06"],
-      ]
-    }
   },
   {
     id: "2",
@@ -56,14 +47,6 @@ GROUP BY TRUNC(ord_endtime, 'MM')
 ORDER BY month DESC;`,
     type: "Customer Analytics",
     createdAt: new Date("2024-11-15"),
-    sampleOutput: {
-      columns: ["month", "active_customers"],
-      rows: [
-        ["2024-12-01", 268610],
-        ["2024-11-01", 245890],
-        ["2024-10-01", 231450],
-      ]
-    }
   },
   {
     id: "3",
@@ -78,14 +61,6 @@ GROUP BY TRUNC(ord_endtime)
 ORDER BY txn_date;`,
     type: "Trend Analysis",
     createdAt: new Date("2024-11-20"),
-    sampleOutput: {
-      columns: ["txn_date", "daily_active"],
-      rows: [
-        ["2024-12-11", 42350],
-        ["2024-12-10", 41200],
-        ["2024-12-09", 43100],
-      ]
-    }
   },
   {
     id: "4",
@@ -102,13 +77,6 @@ GROUP BY TRUNC(ord_endtime)
 ORDER BY activity_date DESC;`,
     type: "Summary Reports",
     createdAt: new Date("2024-12-05"),
-    sampleOutput: {
-      columns: ["activity_date", "total_transactions", "total_amount", "avg_amount"],
-      rows: [
-        ["2024-12-11", 152340, 45670000, 299.85],
-        ["2024-12-10", 148920, 43890000, 294.71],
-      ]
-    }
   },
   {
     id: "5",
@@ -124,14 +92,6 @@ GROUP BY region
 ORDER BY total_revenue DESC;`,
     type: "Revenue Analysis",
     createdAt: new Date("2024-12-08"),
-    sampleOutput: {
-      columns: ["region", "topup_count", "total_revenue"],
-      rows: [
-        ["Nairobi", 89450, 12340000],
-        ["Mombasa", 45230, 6780000],
-        ["Kisumu", 32100, 4560000],
-      ]
-    }
   },
 ];
 
@@ -158,8 +118,18 @@ const highlightSQL = (sql: string) => {
 export default function SQLQueryDetail() {
   const { queryId } = useParams();
   const navigate = useNavigate();
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const query = mockQueries.find(q => q.id === queryId);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setLastRefreshed(new Date());
+      setIsRefreshing(false);
+    }, 500);
+  }, []);
   
   if (!query) {
     return (
@@ -191,14 +161,21 @@ export default function SQLQueryDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/sql-query-library")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">{query.title}</h1>
-          <p className="text-muted-foreground text-sm mt-1">{query.type}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/sql-query-library")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{query.title}</h1>
+            <p className="text-muted-foreground text-sm mt-1">{query.type}</p>
+          </div>
         </div>
+        <RefreshControl 
+          lastRefreshed={lastRefreshed} 
+          onRefresh={handleRefresh} 
+          isRefreshing={isRefreshing} 
+        />
       </div>
 
       {/* Description */}
@@ -235,35 +212,6 @@ export default function SQLQueryDetail() {
             <pre className="text-sm font-mono whitespace-pre-wrap">
               <code dangerouslySetInnerHTML={{ __html: highlightSQL(query.sql) }} />
             </pre>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sample Output */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Sample Output Preview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {query.sampleOutput.columns.map((col) => (
-                    <TableHead key={col} className="font-semibold">{col}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {query.sampleOutput.rows.map((row, idx) => (
-                  <TableRow key={idx}>
-                    {row.map((cell, cellIdx) => (
-                      <TableCell key={cellIdx}>{cell.toLocaleString()}</TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </div>
         </CardContent>
       </Card>

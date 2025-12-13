@@ -12,6 +12,9 @@ import DormantList from "./pages/ops-support/DormantList";
 import Pinlock from "./pages/ops-support/Pinlock";
 import SQLQueryLibrary from "./pages/SQLQueryLibrary";
 import SQLQueryDetail from "./pages/SQLQueryDetail";
+import CCBECampaign from "./pages/campaigns/CCBECampaign";
+import GAPinResetCampaign from "./pages/campaigns/GAPinResetCampaign";
+import WonBackChurner from "./pages/campaigns/WonBackChurner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,7 +30,9 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="metric/:metricId" element={<MetricDetail />} />
             <Route path="base-preparation" element={<BasePreparation />} />
-            <Route path="campaign-management" element={<Dashboard />} />
+            <Route path="campaign/ccbe" element={<CCBECampaign />} />
+            <Route path="campaign/ga-pin-reset" element={<GAPinResetCampaign />} />
+            <Route path="campaign/won-back-churner" element={<WonBackChurner />} />
             <Route path="ops-support/court-issue" element={<CourtIssue />} />
             <Route path="ops-support/dormant-list" element={<DormantList />} />
             <Route path="ops-support/pinlock" element={<Pinlock />} />
