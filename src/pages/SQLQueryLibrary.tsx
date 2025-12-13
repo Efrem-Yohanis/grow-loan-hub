@@ -1,15 +1,19 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, X, FileCode2 } from "lucide-react";
+import { Search, Filter, Calendar, X, FileCode2, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { RefreshControl } from "@/components/RefreshControl";
+import { toast } from "sonner";
 
 export interface SQLQuery {
   id: string;
@@ -18,11 +22,10 @@ export interface SQLQuery {
   sql: string;
   type: string;
   createdAt: Date;
-  sampleOutput: { columns: string[]; rows: (string | number)[][] };
 }
 
 // Mock data
-const mockQueries: SQLQuery[] = [
+const initialQueries: SQLQuery[] = [
   {
     id: "1",
     title: "30D Active New Customers (Txn-Based)",
@@ -47,14 +50,6 @@ FROM first_txn f
 WHERE f.first_txn_date >= TRUNC(SYSDATE - 30);`,
     type: "Customer Analytics",
     createdAt: new Date("2024-12-01"),
-    sampleOutput: {
-      columns: ["customer_id", "first_txn_date"],
-      rows: [
-        ["712345678", "2024-12-10"],
-        ["723456789", "2024-12-09"],
-        ["734567890", "2024-12-08"],
-      ]
-    }
   },
   {
     id: "2",
@@ -69,14 +64,6 @@ GROUP BY TRUNC(ord_endtime, 'MM')
 ORDER BY month DESC;`,
     type: "Customer Analytics",
     createdAt: new Date("2024-11-15"),
-    sampleOutput: {
-      columns: ["month", "active_customers"],
-      rows: [
-        ["2024-12-01", 268610],
-        ["2024-11-01", 245890],
-        ["2024-10-01", 231450],
-      ]
-    }
   },
   {
     id: "3",
@@ -91,14 +78,6 @@ GROUP BY TRUNC(ord_endtime)
 ORDER BY txn_date;`,
     type: "Trend Analysis",
     createdAt: new Date("2024-11-20"),
-    sampleOutput: {
-      columns: ["txn_date", "daily_active"],
-      rows: [
-        ["2024-12-11", 42350],
-        ["2024-12-10", 41200],
-        ["2024-12-09", 43100],
-      ]
-    }
   },
   {
     id: "4",
@@ -115,13 +94,6 @@ GROUP BY TRUNC(ord_endtime)
 ORDER BY activity_date DESC;`,
     type: "Summary Reports",
     createdAt: new Date("2024-12-05"),
-    sampleOutput: {
-      columns: ["activity_date", "total_transactions", "total_amount", "avg_amount"],
-      rows: [
-        ["2024-12-11", 152340, 45670000, 299.85],
-        ["2024-12-10", 148920, 43890000, 294.71],
-      ]
-    }
   },
   {
     id: "5",
@@ -137,14 +109,6 @@ GROUP BY region
 ORDER BY total_revenue DESC;`,
     type: "Revenue Analysis",
     createdAt: new Date("2024-12-08"),
-    sampleOutput: {
-      columns: ["region", "topup_count", "total_revenue"],
-      rows: [
-        ["Nairobi", 89450, 12340000],
-        ["Mombasa", 45230, 6780000],
-        ["Kisumu", 32100, 4560000],
-      ]
-    }
   },
 ];
 
@@ -152,6 +116,7 @@ const sqlTypes = ["All Types", "Customer Analytics", "Trend Analysis", "Summary 
 
 export default function SQLQueryLibrary() {
   const navigate = useNavigate();
+  const [queries, setQueries] = useState<SQLQuery[]>(initialQueries);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedType, setSelectedType] = useState("All Types");
@@ -159,6 +124,8 @@ export default function SQLQueryLibrary() {
   const [currentPage, setCurrentPage] = useState(1);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newQuery, setNewQuery] = useState({ title: "", description: "", sql: "" });
   const searchRef = useRef<HTMLDivElement>(null);
   const itemsPerPage = 5;
 
@@ -193,7 +160,7 @@ export default function SQLQueryLibrary() {
     if (!searchTerm.trim()) return [];
     const term = searchTerm.toLowerCase();
     
-    return mockQueries
+    return queries
       .map(query => {
         const title = query.title.toLowerCase();
         const startsWithScore = title.startsWith(term) ? 0 : 100;
@@ -205,11 +172,11 @@ export default function SQLQueryLibrary() {
       .sort((a, b) => a.score - b.score)
       .slice(0, 5)
       .map(item => item.query);
-  }, [searchTerm]);
+  }, [searchTerm, queries]);
 
   // Filter queries
   const filteredQueries = useMemo(() => {
-    return mockQueries.filter(query => {
+    return queries.filter(query => {
       const matchesSearch = !searchTerm.trim() || 
         query.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         query.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -218,7 +185,7 @@ export default function SQLQueryLibrary() {
         format(query.createdAt, "yyyy-MM-dd") === format(dateFilter, "yyyy-MM-dd");
       return matchesSearch && matchesType && matchesDate;
     });
-  }, [searchTerm, selectedType, dateFilter]);
+  }, [searchTerm, selectedType, dateFilter, queries]);
 
   // Pagination
   const totalPages = Math.ceil(filteredQueries.length / itemsPerPage);
@@ -247,6 +214,27 @@ export default function SQLQueryLibrary() {
     setCurrentPage(1);
   };
 
+  const handleAddQuery = () => {
+    if (!newQuery.title.trim() || !newQuery.sql.trim()) {
+      toast.error("Title and SQL are required");
+      return;
+    }
+
+    const query: SQLQuery = {
+      id: String(Date.now()),
+      title: newQuery.title.trim(),
+      description: newQuery.description.trim(),
+      sql: newQuery.sql.trim(),
+      type: "Customer Analytics",
+      createdAt: new Date(),
+    };
+
+    setQueries([query, ...queries]);
+    setNewQuery({ title: "", description: "", sql: "" });
+    setIsDialogOpen(false);
+    toast.success("SQL query added successfully");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -254,11 +242,64 @@ export default function SQLQueryLibrary() {
           <h1 className="text-2xl font-bold text-foreground">SQL Query Library</h1>
           <p className="text-muted-foreground text-sm mt-1">Browse and manage stored SQL queries</p>
         </div>
-        <RefreshControl 
-          lastRefreshed={lastRefreshed} 
-          onRefresh={handleRefresh} 
-          isRefreshing={isRefreshing} 
-        />
+        <div className="flex items-center gap-3">
+          <RefreshControl 
+            lastRefreshed={lastRefreshed} 
+            onRefresh={handleRefresh} 
+            isRefreshing={isRefreshing} 
+          />
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add SQL Query
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add New SQL Query</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title *</Label>
+                  <Input 
+                    id="title"
+                    placeholder="Enter query title..."
+                    value={newQuery.title}
+                    onChange={(e) => setNewQuery({ ...newQuery, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea 
+                    id="description"
+                    placeholder="Enter query description..."
+                    value={newQuery.description}
+                    onChange={(e) => setNewQuery({ ...newQuery, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sql">SQL *</Label>
+                  <Textarea 
+                    id="sql"
+                    placeholder="Enter SQL query..."
+                    value={newQuery.sql}
+                    onChange={(e) => setNewQuery({ ...newQuery, sql: e.target.value })}
+                    rows={10}
+                    className="font-mono text-sm"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleAddQuery}>Save Query</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Search and Filters */}
