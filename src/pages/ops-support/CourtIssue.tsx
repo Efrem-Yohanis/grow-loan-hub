@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Gavel, CalendarIcon, Search, Download } from "lucide-react";
+import { Gavel, CalendarIcon, Search, Download, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+
+const API_BASE_URL = "http://127.0.0.1:5000";
 
 interface CourtIssueResult {
   ORD_ENDTIME: string;
@@ -22,7 +24,15 @@ interface CourtIssueResult {
   ORD_RECEIVER_MNEMONIC: string;
   DS_ORD_TXN_TYPE_NAME: string;
   AMOUNT: number;
-  ACCOUNT: string;
+  ACCOUNT: string | null;
+}
+
+interface PaginationInfo {
+  page: number;
+  page_size: number;
+  total_pages: number;
+  total_transactions: number;
+  returned_transactions: number;
 }
 
 export default function CourtIssue() {
@@ -31,8 +41,11 @@ export default function CourtIssue() {
   const [toDate, setToDate] = useState<Date>();
   const [results, setResults] = useState<CourtIssueResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [executionTime, setExecutionTime] = useState<number | null>(null);
 
-  const handleSearch = () => {
+  const handleSearch = async (page: number = 1) => {
     if (!msisdn) {
       toast({
         title: "Validation Error",
@@ -51,29 +64,53 @@ export default function CourtIssue() {
     }
     
     setIsSearching(true);
-    // Simulate backend response with mock data
-    setTimeout(() => {
-      setResults([
-        {
-          ORD_ENDTIME: "2025-02-03 13:29:51.000",
-          ORDERID: "TB30O0QLEU",
-          DS_CUSTOMER_MSISDN: "251705800721",
-          ORD_REASON_TYPE_NAME: "Customer Transfer",
-          ORD_INITIATOR_MNEMONIC: "251705800721 - Yenensh Mamush Azene",
-          TX_CREDIT_PARTY_IDENTIFIER: "251707452670",
-          TX_DEBIT_PARTY_IDENTIFIER: "251705800721",
-          ORD_RECEIVER_MNEMONIC: "251707452670 - Haile Buta Tona",
-          DS_ORD_TXN_TYPE_NAME: "P2P",
-          AMOUNT: 25790,
-          ACCOUNT: "251705800721",
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/court_issue`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ]);
-      setIsSearching(false);
-      toast({
-        title: "Search Complete",
-        description: `Found results for MSISDN: ${msisdn}`,
+        body: JSON.stringify({
+          msisdn: msisdn,
+          data_from: format(fromDate, "yyyy-MM-dd"),
+          data_to: format(toDate, "yyyy-MM-dd"),
+          page: page,
+          page_size: 50,
+        }),
       });
-    }, 1000);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setResults(data.data || []);
+        setPagination(data.pagination || null);
+        setCurrentPage(page);
+        setExecutionTime(data.execution_time_seconds || null);
+        toast({
+          title: "Search Complete",
+          description: `Found ${data.transaction_count || data.pagination?.total_transactions || 0} transactions for MSISDN: ${msisdn}`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch court issue data",
+          variant: "destructive",
+        });
+        setResults([]);
+        setPagination(null);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to connect to the server",
+        variant: "destructive",
+      });
+      setResults([]);
+      setPagination(null);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -95,7 +132,7 @@ export default function CourtIssue() {
     const csvContent = [
       headers.join(","),
       ...results.map(row => 
-        headers.map(header => `"${row[header as keyof CourtIssueResult]}"`).join(",")
+        headers.map(header => `"${row[header as keyof CourtIssueResult] ?? ""}"`).join(",")
       )
     ].join("\n");
 
@@ -112,8 +149,8 @@ export default function CourtIssue() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 w-full">
+      <div className="w-full p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             Court Issue
@@ -134,7 +171,7 @@ export default function CourtIssue() {
               <Label htmlFor="msisdn">MSISDN</Label>
               <Input
                 id="msisdn"
-                placeholder="Enter MSISDN"
+                placeholder="Enter MSISDN (e.g., 911234567)"
                 value={msisdn}
                 onChange={(e) => setMsisdn(e.target.value)}
               />
@@ -196,8 +233,12 @@ export default function CourtIssue() {
               </div>
             </div>
 
-            <Button onClick={handleSearch} disabled={isSearching} className="w-full md:w-auto">
-              <Search className="mr-2 h-4 w-4" />
+            <Button onClick={() => handleSearch(1)} disabled={isSearching} className="w-full md:w-auto">
+              {isSearching ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-4 w-4" />
+              )}
               {isSearching ? "Searching..." : "Search"}
             </Button>
           </CardContent>
@@ -208,7 +249,12 @@ export default function CourtIssue() {
             <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-transparent flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Search Results</CardTitle>
-                <CardDescription>{results.length} record(s) found</CardDescription>
+                <CardDescription>
+                  {pagination 
+                    ? `Showing ${pagination.returned_transactions} of ${pagination.total_transactions} transactions`
+                    : `${results.length} record(s) found`}
+                  {executionTime && ` • Executed in ${executionTime.toFixed(2)}s`}
+                </CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={exportToCSV}>
                 <Download className="mr-2 h-4 w-4" />
@@ -245,13 +291,37 @@ export default function CourtIssue() {
                         <TableCell>{row.TX_DEBIT_PARTY_IDENTIFIER}</TableCell>
                         <TableCell className="whitespace-nowrap">{row.ORD_RECEIVER_MNEMONIC}</TableCell>
                         <TableCell>{row.DS_ORD_TXN_TYPE_NAME}</TableCell>
-                        <TableCell>{row.AMOUNT.toLocaleString()}</TableCell>
-                        <TableCell>{row.ACCOUNT}</TableCell>
+                        <TableCell>{row.AMOUNT?.toLocaleString() ?? ""}</TableCell>
+                        <TableCell>{row.ACCOUNT ?? ""}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+
+              {pagination && pagination.total_pages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 1 || isSearching}
+                    onClick={() => handleSearch(currentPage - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {pagination.total_pages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === pagination.total_pages || isSearching}
+                    onClick={() => handleSearch(currentPage + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

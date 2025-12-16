@@ -1,27 +1,40 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, Users, Clock, DollarSign, Target, Gift, CreditCard, X, Rocket, Wallet, Building } from "lucide-react";
+import { Users, Clock, Target, Gift, CreditCard, X, Wallet, Building, Upload, Moon } from "lucide-react";
+import { BaseTableBuilder } from "@/components/base-preparation/BaseTableBuilder";
 import { useToast } from "@/hooks/use-toast";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import {
+  createActiveCustomerTable,
+  createVlrAttachedTable,
+  createRegisteredMpesaTable,
+  createTargetedTable,
+  createRewardedCustomerTable,
+  createTableFromFile,
+  createCustomerGaTable,
+  createFraudTable,
+  createStaffListTable,
+  createCbeTopupTable,
+  createFrearedFromTable,
+  createDormantTable,
+  ApiResponse,
+} from "@/lib/basePreparationApi";
 
 interface TableFieldConfig {
   name: string;
-  type: "text" | "number" | "date" | "dropdown" | "date-conditional";
+  type: "text" | "file";
   label: string;
   required: boolean;
   placeholder?: string;
-  options?: string[];
 }
 
 interface TableConfig {
   id: string;
+  instanceId: string;
   label: string;
   icon: any;
   borderColor: string;
@@ -34,18 +47,55 @@ interface TableStatus {
   status: "pending" | "running" | "completed" | "error";
   time: number;
   parameters: string;
+  columns?: string[];
+  rowCount?: number;
 }
 
 const availableTables: { id: string; label: string; icon: any; borderColor: string; fields: TableFieldConfig[] }[] = [
+  { 
+    id: "from_input", 
+    label: "FROM INPUT", 
+    icon: Upload, 
+    borderColor: "border-l-emerald-500",
+    fields: [
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., custom_input_table" },
+      { name: "file_input", type: "file", label: "File Input", required: true },
+    ]
+  },
+  { 
+    id: "ga_customers", 
+    label: "GA CUSTOMERS", 
+    icon: Users, 
+    borderColor: "border-l-emerald-500",
+    fields: [
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., ga_customers_table" },
+    ]
+  },
+  { 
+    id: "staff_list", 
+    label: "STAFF LIST", 
+    icon: Users, 
+    borderColor: "border-l-teal-500",
+    fields: [
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., staff_list" },
+    ]
+  },
+  { 
+    id: "fraud_customer", 
+    label: "FRAUD CUSTOMER", 
+    icon: Users, 
+    borderColor: "border-l-orange-500",
+    fields: [
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., fraud_list" },
+    ]
+  },
   { 
     id: "active_customers", 
     label: "ACTIVE CUSTOMERS", 
     icon: Users, 
     borderColor: "border-l-green-500",
     fields: [
-      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., active_customers_jan_2024" },
-      { name: "data_from", type: "date", label: "Data From (End Date)", required: true },
-      { name: "active_for", type: "number", label: "Active For (Days)", required: true, placeholder: "e.g., 30" },
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., active_customers" },
     ]
   },
   { 
@@ -54,9 +104,7 @@ const availableTables: { id: string; label: string; icon: any; borderColor: stri
     icon: Clock, 
     borderColor: "border-l-blue-500",
     fields: [
-      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., vlr_attached_customers" },
-      { name: "day_from", type: "number", label: "Day From", required: true, placeholder: "e.g., 0" },
-      { name: "day_to", type: "number", label: "Day To", required: true, placeholder: "e.g., 10" },
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., vlr_customers" },
     ]
   },
   { 
@@ -66,19 +114,6 @@ const availableTables: { id: string; label: string; icon: any; borderColor: stri
     borderColor: "border-l-purple-500",
     fields: [
       { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., registered_mpesa" },
-      { name: "data_format", type: "dropdown", label: "Data Format", required: true, options: ["before", "after", "date_range"] },
-      { name: "date", type: "date-conditional", label: "Date", required: true },
-    ]
-  },
-  { 
-    id: "balance_threshold", 
-    label: "BALANCE THRESHOLD", 
-    icon: DollarSign, 
-    borderColor: "border-l-yellow-500",
-    fields: [
-      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., balance_threshold_10" },
-      { name: "balance_threshold", type: "number", label: "Balance Threshold", required: true, placeholder: "e.g., 10" },
-      { name: "comparison", type: "dropdown", label: "Comparison", required: true, options: ["equal to", "greater than or equal to", "less than or equal to", "greater than", "less than", "not equal to"] },
     ]
   },
   { 
@@ -87,9 +122,7 @@ const availableTables: { id: string; label: string; icon: any; borderColor: stri
     icon: Target, 
     borderColor: "border-l-red-500",
     fields: [
-      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., targeted_customers_jan" },
-      { name: "data_from", type: "date", label: "Data From", required: true },
-      { name: "targeted_for_last", type: "number", label: "Targeted For Last (Days)", required: true, placeholder: "e.g., 30" },
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., targeted_customers" },
     ]
   },
   { 
@@ -99,8 +132,6 @@ const availableTables: { id: string; label: string; icon: any; borderColor: stri
     borderColor: "border-l-pink-500",
     fields: [
       { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., rewarded_customers" },
-      { name: "data_format", type: "dropdown", label: "Data Format", required: true, options: ["before", "after", "date_range"] },
-      { name: "date", type: "date-conditional", label: "Date", required: true },
     ]
   },
   { 
@@ -110,8 +141,6 @@ const availableTables: { id: string; label: string; icon: any; borderColor: stri
     borderColor: "border-l-indigo-500",
     fields: [
       { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., cbe_topup_customers" },
-      { name: "data_format", type: "dropdown", label: "Data Format", required: true, options: ["before", "after", "date_range"] },
-      { name: "date", type: "date-conditional", label: "Date", required: true },
     ]
   },
   { 
@@ -120,47 +149,43 @@ const availableTables: { id: string; label: string; icon: any; borderColor: stri
     icon: Wallet, 
     borderColor: "border-l-cyan-500",
     fields: [
-      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., rewarded_from_account_list" },
-      { name: "account_number", type: "text", label: "Account Number", required: true, placeholder: "e.g., 9000069" },
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., rewarded_from_account" },
+    ]
+  },
+  { 
+    id: "dormant_list", 
+    label: "DORMANT LIST", 
+    icon: Moon, 
+    borderColor: "border-l-gray-500",
+    fields: [
+      { name: "table_name", type: "text", label: "Table Name", required: true, placeholder: "e.g., dormant_list" },
     ]
   },
 ];
 
 export default function BasePreparation() {
   const { toast } = useToast();
-  const [postfix, setPostfix] = useState("NOV29");
   const [selectedTableId, setSelectedTableId] = useState<string>("");
   const [selectedTables, setSelectedTables] = useState<TableConfig[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [startTime, setStartTime] = useState<number>(0);
   const [tableStatuses, setTableStatuses] = useState<TableStatus[]>([]);
+  const fileInputRefs = useRef<Record<string, File | null>>({});
 
   const handleAddTable = () => {
     if (!selectedTableId) return;
     
     const table = availableTables.find(t => t.id === selectedTableId);
     if (!table) return;
-    
-    if (selectedTables.some(t => t.id === selectedTableId)) {
-      toast({
-        title: "Already Added",
-        description: "This table is already in your configuration.",
-        variant: "destructive"
-      });
-      return;
-    }
 
     const initialValues: Record<string, any> = {};
     table.fields.forEach(field => {
-      if (field.type === "date-conditional") {
-        initialValues[field.name] = { start: undefined, end: undefined, single: undefined };
-      } else {
-        initialValues[field.name] = "";
-      }
+      initialValues[field.name] = "";
     });
 
     const newTable: TableConfig = {
       ...table,
+      instanceId: crypto.randomUUID(),
       values: initialValues
     };
     
@@ -168,49 +193,119 @@ export default function BasePreparation() {
     setSelectedTableId("");
   };
 
-  const handleRemoveTable = (tableId: string) => {
-    setSelectedTables(selectedTables.filter(t => t.id !== tableId));
+  const handleRemoveTable = (instanceId: string) => {
+    setSelectedTables(selectedTables.filter(t => t.instanceId !== instanceId));
   };
 
-  const updateTableField = (tableId: string, fieldName: string, value: any) => {
+  const updateTableField = (instanceId: string, fieldName: string, value: any) => {
     setSelectedTables(selectedTables.map(table => 
-      table.id === tableId 
+      table.instanceId === instanceId 
         ? { ...table, values: { ...table.values, [fieldName]: value } }
         : table
     ));
   };
 
-  const getTableParameters = (table: TableConfig): string => {
-    return table.fields
-      .map(field => {
-        const value = table.values[field.name];
-        if (field.type === "date") {
-          return value ? format(value, "yyyy-MM-dd") : "N/A";
-        }
-        if (field.type === "date-conditional") {
-          const dataFormat = table.values["data_format"];
-          if (dataFormat === "date_range") {
-            return value?.start && value?.end 
-              ? `${format(value.start, "yyyy-MM-dd")} to ${format(value.end, "yyyy-MM-dd")}`
-              : "N/A";
-          }
-          return value?.single ? format(value.single, "yyyy-MM-dd") : "N/A";
-        }
-        return value || "N/A";
-      })
-      .join(", ");
-  };
-
   const getAllTables = () => {
-    return selectedTables.map(table => ({
-      name: `${table.values.table_name || table.label.replace(/ /g, "_")}_${postfix}`,
+    return selectedTables.map((table, idx) => ({
+      name: table.values.table_name || table.label.replace(/ /g, "_"),
       status: "pending" as const,
       time: 0,
-      parameters: getTableParameters(table)
+      parameters: table.values.table_name || "N/A",
+      tableIndex: idx,
     }));
   };
 
-  const handleGenerate = () => {
+  const callApiForTable = async (table: TableConfig): Promise<ApiResponse> => {
+    const tableName = table.values.table_name || table.label.replace(/ /g, "_");
+    
+    switch (table.id) {
+      case "active_customers":
+        return createActiveCustomerTable({
+          table_name: tableName,
+          data_from: new Date().toISOString().split('T')[0],
+          active_for: 30,
+        });
+
+      case "ga_customers":
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        return createCustomerGaTable({
+          table_name: tableName,
+          data_from: yesterday.toISOString().split('T')[0],
+          data_to: today.toISOString().split('T')[0],
+        });
+
+      case "vlr_attached_customers": {
+        const todayDate = new Date();
+        const fromDate = new Date(todayDate);
+        fromDate.setDate(todayDate.getDate() - 30);
+        return createVlrAttachedTable({
+          table_name: tableName,
+          day_from: fromDate.toISOString().split('T')[0],
+          day_to: todayDate.toISOString().split('T')[0],
+        });
+      }
+
+      case "registered_mpesa":
+        return createRegisteredMpesaTable({ table_name: tableName });
+
+      case "targeted_customers":
+        return createTargetedTable({
+          table_name: tableName,
+          data_from: new Date().toISOString().split('T')[0],
+          targeted_for_last: 7,
+        });
+
+      case "rewarded_customers":
+        return createRewardedCustomerTable({ table_name: tableName });
+
+      case "from_input": {
+        const file = fileInputRefs.current[table.instanceId];
+        if (!file) {
+          throw new Error("No file selected");
+        }
+        return createTableFromFile(tableName, file);
+      }
+
+      case "fraud_customer":
+        return createFraudTable({ table_name: tableName });
+
+      case "staff_list":
+        return createStaffListTable({ table_name: tableName });
+
+      case "cbe_topup": {
+        const todayCbe = new Date();
+        const monthAgo = new Date(todayCbe);
+        monthAgo.setDate(todayCbe.getDate() - 30);
+        return createCbeTopupTable({
+          table_name: tableName,
+          data_from: monthAgo.toISOString().split('T')[0],
+          data_to: todayCbe.toISOString().split('T')[0],
+        });
+      }
+
+      case "rewarded_from_account":
+        return createFrearedFromTable({
+          table_name: tableName,
+          account_number: "9000069",
+        });
+
+      case "dormant_list":
+        return createDormantTable({ table_name: tableName });
+
+      default:
+        return {
+          success: true,
+          table_name: tableName,
+          columns: ["MSISDN"],
+          row_count: Math.floor(Math.random() * 100000) + 1000,
+          execution_time_seconds: Math.random() * 10 + 1,
+        };
+    }
+  };
+
+  const handleGenerate = async () => {
     if (selectedTables.length === 0) {
       toast({
         title: "No Tables Selected",
@@ -221,14 +316,7 @@ export default function BasePreparation() {
     }
 
     const tables = getAllTables();
-    tables.push({
-      name: `PIN_RESET_BASE_${postfix}`,
-      status: "pending",
-      time: 0,
-      parameters: "All pre-requisite tables"
-    });
-
-    setTableStatuses(tables);
+    setTableStatuses(tables.map(t => ({ ...t, tableIndex: undefined })));
     setIsGenerating(true);
     setStartTime(Date.now());
     
@@ -237,47 +325,63 @@ export default function BasePreparation() {
       description: `Generating ${tables.length} base tables...`,
     });
 
-    simulateTableGeneration(tables.length);
-  };
+    for (let i = 0; i < selectedTables.length; i++) {
+      const table = selectedTables[i];
+      const startTableTime = Date.now();
 
-  const simulateTableGeneration = (tableCount: number) => {
-    const completionTimes = Array(tableCount).fill(0).map(() => Math.floor(Math.random() * 10000) + 5000);
-    
-    completionTimes.forEach((time, index) => {
-      setTimeout(() => {
+      setTableStatuses(prev => {
+        const updated = [...prev];
+        updated[i] = { ...updated[i], status: "running" };
+        return updated;
+      });
+
+      const interval = setInterval(() => {
         setTableStatuses(prev => {
           const updated = [...prev];
-          updated[index] = { ...updated[index], status: "running", time: 0 };
+          if (updated[i]?.status === "running") {
+            updated[i] = { ...updated[i], time: Math.floor((Date.now() - startTableTime) / 1000) };
+          }
           return updated;
         });
+      }, 1000);
 
-        const interval = setInterval(() => {
-          setTableStatuses(prev => {
-            const updated = [...prev];
-            if (updated[index].status === "running") {
-              updated[index] = { ...updated[index], time: updated[index].time + 1 };
-            }
-            return updated;
-          });
-        }, 1000);
+      try {
+        const response = await callApiForTable(table);
+        clearInterval(interval);
+        
+        const elapsedTime = response.execution_time_seconds || (Date.now() - startTableTime) / 1000;
+        
+        setTableStatuses(prev => {
+          const updated = [...prev];
+          updated[i] = {
+            ...updated[i],
+            status: response.success ? "completed" : "error",
+            time: Math.round(elapsedTime * 100) / 100,
+            columns: response.columns,
+            rowCount: response.row_count || response.rows_inserted || response.rows_created,
+          };
+          return updated;
+        });
+      } catch (error) {
+        clearInterval(interval);
+        console.error(`Error creating table ${table.values.table_name}:`, error);
+        
+        setTableStatuses(prev => {
+          const updated = [...prev];
+          updated[i] = {
+            ...updated[i],
+            status: "error",
+            time: Math.floor((Date.now() - startTableTime) / 1000),
+          };
+          return updated;
+        });
+      }
+    }
 
-        setTimeout(() => {
-          clearInterval(interval);
-          setTableStatuses(prev => {
-            const updated = [...prev];
-            updated[index] = { ...updated[index], status: "completed", time: time / 1000 };
-            return updated;
-          });
-
-          if (index === completionTimes.length - 1) {
-            setIsGenerating(false);
-            toast({
-              title: "Generation Complete",
-              description: "All base tables have been successfully created!",
-            });
-          }
-        }, time);
-      }, index * 2000);
+    setIsGenerating(false);
+    toast({
+      title: "Generation Complete",
+      description: "All table creation tasks have finished.",
     });
   };
 
@@ -303,110 +407,26 @@ export default function BasePreparation() {
           <Input 
             type="text" 
             value={value} 
-            onChange={(e) => updateTableField(table.id, field.name, e.target.value)}
+            onChange={(e) => updateTableField(table.instanceId, field.name, e.target.value)}
             placeholder={field.placeholder}
             disabled={isGenerating}
           />
         );
-      case "number":
+      case "file":
         return (
           <Input 
-            type="number" 
-            value={value} 
-            onChange={(e) => updateTableField(table.id, field.name, e.target.value)}
-            placeholder={field.placeholder}
+            type="file" 
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                fileInputRefs.current[table.instanceId] = file;
+              }
+              updateTableField(table.instanceId, field.name, file?.name || "");
+            }}
             disabled={isGenerating}
+            className="cursor-pointer"
+            accept=".csv,.xlsx,.xls"
           />
-        );
-      case "date":
-        return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={isGenerating}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {value ? format(value, "PPP") : "Pick a date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={value}
-                onSelect={(date) => updateTableField(table.id, field.name, date)}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        );
-      case "dropdown":
-        return (
-          <Select value={value} onValueChange={(val) => updateTableField(table.id, field.name, val)} disabled={isGenerating}>
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Select an option..." />
-            </SelectTrigger>
-            <SelectContent className="bg-background z-50">
-              {field.options?.map(option => (
-                <SelectItem key={option} value={option}>{option}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        );
-      case "date-conditional":
-        const dataFormat = table.values["data_format"];
-        if (dataFormat === "date_range") {
-          return (
-            <div className="flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex-1 justify-start text-left font-normal" disabled={isGenerating}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {value?.start ? format(value.start, "PPP") : "Start date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={value?.start}
-                    onSelect={(date) => updateTableField(table.id, field.name, { ...value, start: date })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex-1 justify-start text-left font-normal" disabled={isGenerating}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {value?.end ? format(value.end, "PPP") : "End date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={value?.end}
-                    onSelect={(date) => updateTableField(table.id, field.name, { ...value, end: date })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          );
-        }
-        return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={isGenerating}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {value?.single ? format(value.single, "PPP") : "Pick a date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={value?.single}
-                onSelect={(date) => updateTableField(table.id, field.name, { ...value, single: date })}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
         );
       default:
         return null;
@@ -414,19 +434,13 @@ export default function BasePreparation() {
   };
 
   const completedTables = tableStatuses.filter(t => t.status === "completed").length;
-  const availableToSelect = availableTables.filter(
-    table => !selectedTables.some(st => st.id === table.id)
-  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Base Preparation Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">Configure and generate base tables</p>
-        </div>
+    <div className="w-full space-y-6">
+      <div className="w-full">
+        <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          Base Preparation Dashboard
+        </h1>
 
         <div className="space-y-6">
           <Card className="border-2 shadow-elegant">
@@ -437,45 +451,30 @@ export default function BasePreparation() {
               <CardDescription>Select tables and configure parameters</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="postfix" className="text-base font-semibold">Table Postfix</Label>
-                  <Input 
-                    id="postfix"
-                    type="text" 
-                    value={postfix} 
-                    onChange={(e) => setPostfix(e.target.value.toUpperCase())} 
-                    placeholder="e.g., NOV29"
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Appended to all table names</p>
+              <div>
+                <Label className="text-base font-semibold">Add Tables</Label>
+                <div className="flex gap-2 mt-2">
+                  <Select value={selectedTableId} onValueChange={setSelectedTableId}>
+                    <SelectTrigger className="flex-1 bg-background">
+                      <SelectValue placeholder="Select a table to add..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {availableTables.map(table => (
+                        <SelectItem key={table.id} value={table.id}>
+                          {table.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleAddTable} disabled={!selectedTableId}>
+                    Add
+                  </Button>
                 </div>
-
-                <div>
-                  <Label className="text-base font-semibold">Add Tables</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Select value={selectedTableId} onValueChange={setSelectedTableId}>
-                      <SelectTrigger className="flex-1 bg-background">
-                        <SelectValue placeholder="Select a table to add..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        {availableToSelect.map(table => (
-                          <SelectItem key={table.id} value={table.id}>
-                            {table.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={handleAddTable} disabled={!selectedTableId}>
-                      Add
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {selectedTables.length === 0 
-                      ? "No tables selected"
-                      : `${selectedTables.length} table(s) selected`}
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedTables.length === 0 
+                    ? "No tables selected"
+                    : `${selectedTables.length} table(s) selected`}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -485,7 +484,7 @@ export default function BasePreparation() {
               {selectedTables.map(table => {
                 const Icon = table.icon;
                 return (
-                  <Card key={table.id} className={`border-l-4 ${table.borderColor}`}>
+                  <Card key={table.instanceId} className={`border-l-4 ${table.borderColor}`}>
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between text-base">
                         <div className="flex items-center gap-2">
@@ -495,7 +494,7 @@ export default function BasePreparation() {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => handleRemoveTable(table.id)}
+                          onClick={() => handleRemoveTable(table.instanceId)}
                           disabled={isGenerating}
                         >
                           <X className="h-4 w-4" />
@@ -517,21 +516,22 @@ export default function BasePreparation() {
           )}
 
           {selectedTables.length > 0 && (
-            <Card className="border-2">
-              <CardContent className="pt-6">
-                <Button 
-                  onClick={handleGenerate} 
-                  className="w-full h-14 text-lg gap-2"
-                  disabled={isGenerating}
-                >
-                  <Rocket className="h-5 w-5" />
-                  {isGenerating ? "GENERATING..." : "GENERATE ALL BASE TABLES"}
-                </Button>
-                <p className="text-center text-sm text-muted-foreground mt-2">
-                  Create {selectedTables.length + 1} table(s) with specified parameters
-                </p>
-              </CardContent>
-            </Card>
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleGenerate} 
+                disabled={isGenerating}
+                size="lg"
+              >
+                {isGenerating ? "Generating..." : "Generate Tables"}
+              </Button>
+            </div>
+          )}
+
+          {selectedTables.length > 0 && (
+            <BaseTableBuilder 
+              availableTables={selectedTables.map(t => t.values.table_name || t.label.replace(/ /g, "_"))}
+              postfix=""
+            />
           )}
 
           {isGenerating && (
