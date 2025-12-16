@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Rocket, Copy, RefreshCw, Eye, Database, Save } from "lucide-react";
+import { Plus, X, Rocket, Eye, Database, Save } from "lucide-react";
 import { saveTable } from "@/lib/savedTables";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -45,7 +44,6 @@ export function BaseTableBuilder({ availableTables, postfix }: BaseTableBuilderP
   const [baseColumn, setBaseColumn] = useState("MSISDN");
   const [sourceTables, setSourceTables] = useState<SourceTable[]>([]);
   const [generatedSQL, setGeneratedSQL] = useState("");
-  const [isEdited, setIsEdited] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [tableStatuses, setTableStatuses] = useState<TableCreationStatus[]>([]);
 
@@ -75,26 +73,34 @@ export function BaseTableBuilder({ availableTables, postfix }: BaseTableBuilderP
       alias: ALIAS_LETTERS[idx] || `t${idx + 1}`,
     }));
     setSourceTables(updatedTables);
-    setIsEdited(false);
   };
 
   const updateSourceTable = (id: string, field: keyof SourceTable, value: string) => {
     setSourceTables(sourceTables.map(t => 
       t.id === id ? { ...t, [field]: value } : t
     ));
-    setIsEdited(false);
   };
 
-  const generateSQLFromRules = () => {
-    if (sourceTables.length === 0 || !baseTableName) {
+  const handleExecute = async () => {
+    if (sourceTables.length === 0) {
       toast({
-        title: "Missing Information",
-        description: "Please provide base table name and add source tables.",
+        title: "No Tables",
+        description: "Please add source tables first.",
         variant: "destructive",
       });
       return;
     }
 
+    if (!baseTableName) {
+      toast({
+        title: "Missing Table Name",
+        description: "Please provide a base table name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Auto-generate SQL before execution
     const baseTable = sourceTables.find(t => t.filterType === "BASE");
     if (!baseTable || !baseTable.tableName) {
       toast({
@@ -122,43 +128,9 @@ ${conditions}
 );`;
 
     setGeneratedSQL(sql);
-    setIsEdited(false);
-  };
-
-  const copySQL = () => {
-    navigator.clipboard.writeText(generatedSQL);
-    toast({
-      title: "Copied",
-      description: "SQL copied to clipboard",
-    });
-  };
-
-  const resetSQL = () => {
-    generateSQLFromRules();
-    setIsEdited(false);
-  };
-
-  const handleExecute = async () => {
-    if (sourceTables.length === 0) {
-      toast({
-        title: "No Tables",
-        description: "Please add source tables first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!generatedSQL) {
-      toast({
-        title: "No SQL Generated",
-        description: "Please generate SQL first by clicking 'Regenerate'.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Initialize status for the final base table only
-    const finalTableName = `${baseTableName}_${postfix}`;
+    const finalTableName = fullTableName;
     const allTables: TableCreationStatus[] = [
       {
         name: finalTableName,
@@ -179,7 +151,7 @@ ${conditions}
     try {
       const response = await createTableFromSql({
         table_name: finalTableName,
-        sql: generatedSQL,
+        sql: sql,
       });
 
       const now = new Date().toISOString().replace("T", " ").substring(0, 19);
@@ -310,23 +282,11 @@ ${conditions}
 
           {/* Source Tables */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold">Source Tables</Label>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={addSourceTable}
-                disabled={availableTables.length === 0}
-                className="gap-1"
-              >
-                <Plus className="h-4 w-4" />
-                Add Table
-              </Button>
-            </div>
+            <Label className="text-sm font-semibold">Source Tables</Label>
 
             {sourceTables.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">
-                No source tables added. Click "Add Table" to start.
+                No source tables added. Click the button below to add a table.
               </p>
             ) : (
               <div className="space-y-3">
@@ -389,47 +349,39 @@ ${conditions}
                 ))}
               </div>
             )}
+
+            {/* Add Table Button - inline */}
+            {availableTables.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={addSourceTable}
+                className="gap-1"
+              >
+                <Plus className="h-4 w-4" />
+                Add Source Table
+              </Button>
+            )}
           </div>
 
-          {/* Generated SQL */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold">Generated SQL (Editable)</Label>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={generateSQLFromRules} className="gap-1">
-                  <RefreshCw className="h-3 w-3" />
-                  Regenerate
-                </Button>
-                <Button variant="outline" size="sm" onClick={copySQL} disabled={!generatedSQL} className="gap-1">
-                  <Copy className="h-3 w-3" />
-                  Copy
-                </Button>
-                {isEdited && (
-                  <Button variant="outline" size="sm" onClick={resetSQL} className="gap-1">
-                    Reset
-                  </Button>
-                )}
-              </div>
+          {/* Generated SQL Preview */}
+          {generatedSQL && (
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Generated SQL Preview</Label>
+              <pre className="p-4 bg-muted/30 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap border">
+                {generatedSQL}
+              </pre>
             </div>
-            <Textarea
-              value={generatedSQL}
-              onChange={(e) => {
-                setGeneratedSQL(e.target.value);
-                setIsEdited(true);
-              }}
-              placeholder="Click 'Regenerate' to generate SQL from your configuration..."
-              className="font-mono text-sm min-h-[300px] bg-muted/30"
-            />
-          </div>
+          )}
 
-          {/* Execute Button */}
+          {/* Single Execute Button */}
           <Button
             onClick={handleExecute}
             className="w-full h-14 text-lg gap-2"
             disabled={isGenerating || sourceTables.length === 0 || !baseTableName}
           >
             <Rocket className="h-5 w-5" />
-            {isGenerating ? "GENERATING..." : "GENERATE ALL TABLES"}
+            {isGenerating ? "GENERATING..." : "BUILD TABLE"}
           </Button>
         </CardContent>
       </Card>
