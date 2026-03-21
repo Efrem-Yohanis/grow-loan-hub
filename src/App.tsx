@@ -1,30 +1,20 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import MainLayout from "./pages/MainLayout";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import MetricDetail from "./pages/MetricDetail";
-import BasePreparation from "./pages/BasePreparation";
-import TableDetailPage from "./pages/base-preparation/TableDetailPage";
-import MySchemaPage from "./pages/tables/MySchemaPage";
-import SavedTablesPage from "./pages/tables/SavedTablesPage";
-import TableViewPage from "./pages/tables/TableViewPage";
-import CourtIssue from "./pages/ops-support/CourtIssue";
-import DormantList from "./pages/ops-support/DormantList";
-import Pinlock from "./pages/ops-support/Pinlock";
-import SQLQueryLibrary from "./pages/SQLQueryLibrary";
-import SQLQueryDetail from "./pages/SQLQueryDetail";
-import CCBECampaign from "./pages/campaigns/CCBECampaign";
-import GAPinResetCampaign from "./pages/campaigns/GAPinResetCampaign";
-import WonBackChurner from "./pages/campaigns/WonBackChurner";
-import TaskManager from "./pages/TaskManager";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { CampaignProvider } from "@/context/CampaignContext";
+import AppShell from "@/components/AppShell";
+import CampaignList from "@/pages/CampaignList";
+import CampaignDetail from "@/pages/CampaignDetail";
+import CampaignCreate from "@/pages/CampaignCreate";
+import AudienceList from "@/pages/AudienceList";
+import AudienceDetail from "@/pages/AudienceDetail";
+import ScheduleList from "@/pages/ScheduleList";
+import ScheduleDetail from "@/pages/ScheduleDetail";
+import MessageContentList from "@/pages/MessageContentList";
+import MessageContentDetail from "@/pages/MessageContentDetail";
+import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
@@ -34,37 +24,23 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Dashboard />} />
-              <Route path="metric/:metricId" element={<MetricDetail />} />
-              <Route path="base-preparation" element={<BasePreparation />} />
-              <Route path="base-preparation/table/:tableName" element={<TableDetailPage />} />
-              <Route path="tables/schema" element={<MySchemaPage />} />
-              <Route path="tables/saved" element={<SavedTablesPage />} />
-              <Route path="tables/schema/:tableName/view" element={<TableViewPage />} />
-              <Route path="tables/saved/:tableName/view" element={<TableViewPage />} />
-              <Route path="campaign/ccbe" element={<CCBECampaign />} />
-              <Route path="campaign/ga-pin-reset" element={<GAPinResetCampaign />} />
-              <Route path="campaign/won-back-churner" element={<WonBackChurner />} />
-              <Route path="ops-support/court-issue" element={<CourtIssue />} />
-              <Route path="ops-support/dormant-list" element={<DormantList />} />
-              <Route path="ops-support/pinlock" element={<Pinlock />} />
-              <Route path="sql-query-library" element={<SQLQueryLibrary />} />
-              <Route path="sql-query/:queryId" element={<SQLQueryDetail />} />
-              <Route path="task-manager" element={<TaskManager />} />
-            </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
+        <CampaignProvider>
+          <AppShell>
+            <Routes>
+              <Route path="/" element={<CampaignList />} />
+              <Route path="/campaigns/new" element={<CampaignCreate />} />
+              <Route path="/campaigns/:id" element={<CampaignDetail />} />
+              <Route path="/campaigns/:id/edit" element={<CampaignCreate />} />
+              <Route path="/audiences" element={<AudienceList />} />
+              <Route path="/audiences/:id" element={<AudienceDetail />} />
+              <Route path="/schedules" element={<ScheduleList />} />
+              <Route path="/schedules/:id" element={<ScheduleDetail />} />
+              <Route path="/messages" element={<MessageContentList />} />
+              <Route path="/messages/:id" element={<MessageContentDetail />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppShell>
+        </CampaignProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
